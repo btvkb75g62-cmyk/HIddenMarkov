@@ -15,7 +15,7 @@ class BuildingSystems:
         self.n = self.A[0].shape[0]
         self.l = self.W[0].shape[1]
         self.m = self.B[0].shape[1]
-        self.p = self.n
+        self.p = self.n 
 
         self.mode1 = self.Prob1.shape[0]
 
