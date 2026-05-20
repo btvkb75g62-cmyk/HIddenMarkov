@@ -1,10 +1,9 @@
 import numpy as np
+from scipy.signal import butter, filtfilt
 from BuildingSystems import BuildingSystems
 from ControlTemplate import DynamicRegulator
 
-def simulate(A, B, W, Lambda, Gamma, Prob1, L, K, StyleF, StyleG, x0 = None, w0=None, Horizon = 500):
-
-    if 
+def simulate(A, B, W, Lambda, Gamma, Prob1, L, K, StyleF, StyleG, x0 = None, w0=None, Horizon = 500, h = 0.05, noise_cutoff_hz = 2.0):
 
     m = B[0].shape[1]
     l = W[0].shape[1]
@@ -26,6 +25,7 @@ def simulate(A, B, W, Lambda, Gamma, Prob1, L, K, StyleF, StyleG, x0 = None, w0=
     q = np.zeros(((n+l)*mode1, 1))
     c = np.zeros((m*mode1, 1))
     y = np.zeros((n, 1))
+    u = np.zeros((m, 1)) 
 
     idx1 = np.random.randint(mode1)
 
@@ -37,13 +37,26 @@ def simulate(A, B, W, Lambda, Gamma, Prob1, L, K, StyleF, StyleG, x0 = None, w0=
 
     state_estimate_sequence = []
 
+    # Pre-generate process noise and low-pass filter it to <noise_cutoff_hz
+    raw_noise = np.random.multivariate_normal(np.zeros(n), np.eye(n), size=Horizon)  # (Horizon, n)
+    fs = 1.0 / h
+    b, a = butter(4, noise_cutoff_hz, btype='low', fs=fs)
+    filtered_noise = filtfilt(b, a, raw_noise, axis=0)  # zero-phase, shape (Horizon, n)
+
     for k in range(Horizon):
 
-        u = np.zeros((m, 1)) 
+        z_estimated = np.kron(np.ones(mode1).T, np.eye(n+l)) @ q  # Extract the state estimate from q
+
+        time_sequence = np.append(time_sequence, k)  # Store the time step
+        state_sequence.append(x.flatten())
+        control_sequence.append(u.flatten())
+        disturbance_sequence.append(w.flatten())
+        state_estimate_sequence.append(z_estimated.flatten())  # Store the state estimate from q
 
         #idx1 = np.random.choice(mode1, p=Prob1[idx1])
-        idx1 = 1
-        if k > 200: idx1 = 0
+        idx1 = 0
+        if k > 10: idx1 = 1
+        if k > 20: idx1 = 2
 
         A_k = A[idx1]
         B_k = B[idx1]
@@ -51,22 +64,19 @@ def simulate(A, B, W, Lambda, Gamma, Prob1, L, K, StyleF, StyleG, x0 = None, w0=
         Lambda_k = Lambda[idx1]
         Gamma_k = Gamma[idx1]
 
-        y = x
-
-        q = StyleF @ q + StyleG @ c + L @ (StyleC @ q - y) 
+        q = StyleF @ q + StyleG @ c + L @ (StyleC @ q - x) 
 
         c = K @ q
 
         u = np.kron(np.ones(mode1).T, np.eye(m)) @ c
 
-        x = A_k @ x + W_k @ w + B_k @ u
+        if k > 200 and k < 300: noise = filtered_noise[k].reshape(-1, 1)
+        else: noise = np.zeros((n, 1))
+
+        x = A_k @ x + W_k @ w + B_k @ u 
         w = Lambda_k @ w + Gamma_k @ u
 
-        time_sequence = np.append(time_sequence, k)  # Store the time step
-        state_sequence.append(x.flatten())
-        control_sequence.append(u.flatten())
-        disturbance_sequence.append(w.flatten())
-        state_estimate_sequence.append(q.flatten())  # Store the state estimate from q
+
 
     return np.array(time_sequence), np.array(state_sequence), np.array(control_sequence), np.array(disturbance_sequence), np.array(state_estimate_sequence)
 
@@ -80,34 +90,46 @@ def main_sim():
 
     A = [np.array([[1, 0],
                     [0, 1]]),np.array([[1, 0],
-                                          [0, 1]])]  
+                                          [0, 1]]), np.array([[1, 0],
+                                                              [0, 1]])]
     
     B = [np.array([[10*h, h, h],
-                   [0.2*h, -h, h]]), np.array([[10*h, 0, h],
-                                               [0.2*h, 0, h]])]  
+                   [0.2*h, -h, h]]), np.array([[0, h, h],
+                                               [0, -h, h]]), np.array([[0, h, 0],
+                                                                       [0, -h, 0]])]
     
     W = [np.array([[0, 0, 0],
-                   [0, 0, 0]]), np.array([[0, h, 0],
-                                          [0, -h, 0]])]  
+                   [0, 0, 0]]), np.array([[0, 0, 0],
+                                          [0, 0, 0]]), np.array([[0, 0, 0],
+                                                                 [0, 0, 0]])]
 
     Lambda = [np.array([[0, 0, 0],
                         [0, 0, 0],
                         [0, 0, 0]]), 
                                    np.array([[0, 0, 0],
-                                             [0, 1, 0],
-                                             [0, 0, 0]])]
+                                             [0, 0, 0],
+                                             [0, 0, 0]]), np.array([[0, 0, 0],
+                                                                    [0, 0, 0],
+                                                                    [0, 0, 0]])]
 
     Gamma = [np.array([[1, 0, 0],
                        [0, 1, 0],
                        [0, 0, 1]]), np.array([[1, 0, 0],
-                                              [0, 0, 0],
-                                              [0, 0, 1]])]
+                                              [0, 1, 0],
+                                              [0, 0, 1]]),
+                                                        np.array([[1, 0, 0],
+                                                                  [0, 1, 0],
+                                                                  [0, 0, 1]])]
 
-    Prob1=np.array([[0.95, 0.05], 
-                    [0.05, 0.95]])
+    Prob1=np.array([[0.950, 0.025, 0.025], 
+                    [0.025, 0.950, 0.025],
+                    [0.025, 0.025, 0.950]])
     
     
-    dynReg = DynamicRegulator(A, B, W, Lambda, Gamma, Prob1, Q=np.eye(5), R=0.000001*np.eye(3), V=np.eye(2), N=np.eye(5))
+    N = np.diag([1, 1, 0.000000001, 0.000000001, 0.000000001])
+    V = 0.0000001*np.eye(2)
+
+    dynReg = DynamicRegulator(A, B, W, Lambda, Gamma, Prob1, Q=np.eye(5), R=np.eye(3), V=V, N=N)
     dynReg.solve()
 
     system = BuildingSystems(A, B, W, Lambda, Gamma, Prob1)
