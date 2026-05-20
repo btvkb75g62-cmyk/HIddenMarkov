@@ -15,7 +15,8 @@ class BuildingSystems:
         self.n = self.A[0].shape[0]
         self.l = self.W[0].shape[1]
         self.m = self.B[0].shape[1]
-        self.p = self.n 
+        self.r = self.n + self.l 
+        self.p = self.r
 
         self.mode1 = self.Prob1.shape[0]
 
@@ -47,7 +48,7 @@ class BuildingSystems:
 
     def compute_C(self):
         #self.C = [np.block([[np.eye(self.n), np.zeros((self.n, self.l))]]) for _ in range(self.mode1)]
-        self.C = np.block([[np.eye(self.n), np.zeros((self.n, self.l))]])
+        self.C = np.eye(self.r)
 
     def compute_Fstyle(self):
         diagF = block_diag(*[self.F[i] for i in range(self.mode1)])

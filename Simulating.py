@@ -3,7 +3,7 @@ from scipy.signal import butter, filtfilt
 from BuildingSystems import BuildingSystems
 from ControlTemplate import DynamicRegulator
 
-def simulate(A, B, W, Lambda, Gamma, Prob1, L, K, StyleF, StyleG, x0 = None, w0=None, Horizon = 500, h = 0.05, noise_cutoff_hz = 1.0):
+def simulate(A, B, W, Lambda, Gamma, Prob1, L, K, StyleF, StyleG, x0 = None, w0=None, Horizon = 1000, h = 0.05, noise_cutoff_hz = 1.0):
 
     m = B[0].shape[1]
     l = W[0].shape[1]
@@ -11,7 +11,7 @@ def simulate(A, B, W, Lambda, Gamma, Prob1, L, K, StyleF, StyleG, x0 = None, w0=
 
     mode1 = Prob1.shape[0]
 
-    StyleC = np.kron(np.ones(mode1).T, np.hstack([np.eye(n), np.zeros((n, l))])) 
+    StyleC = np.kron(np.ones(mode1).T, np.eye(n+l)) 
 
     if x0 is None:
         x = np.ones((n, 1))
@@ -53,10 +53,10 @@ def simulate(A, B, W, Lambda, Gamma, Prob1, L, K, StyleF, StyleG, x0 = None, w0=
         disturbance_sequence.append(w.flatten())
         state_estimate_sequence.append(z_estimated.flatten())  # Store the state estimate from q
 
-        #idx1 = np.random.choice(mode1, p=Prob1[idx1])
-        idx1 = 0
-        if k > 100: idx1 = 0
-        if k > 200: idx1 = 0
+        idx1 = np.random.choice(mode1, p=Prob1[idx1])
+        # idx1 = 0
+        # if k > 100: idx1 = 0
+        # if k > 500: idx1 = 0
 
         A_k = A[idx1]
         B_k = B[idx1]
@@ -64,7 +64,7 @@ def simulate(A, B, W, Lambda, Gamma, Prob1, L, K, StyleF, StyleG, x0 = None, w0=
         Lambda_k = Lambda[idx1]
         Gamma_k = Gamma[idx1]
 
-        q = StyleF @ q + StyleG @ c + L @ (StyleC @ q - x) 
+        q = StyleF @ q + StyleG @ c + L @ (StyleC @ q - np.vstack([x, w])) 
 
         c = K @ q
 
@@ -115,13 +115,12 @@ def main_sim():
                                                                   [0, 1, 0],
                                                                   [0, 0, 1]])]
 
-
-    Prob=np.array([[0.950, 0.035, 0.015], 
-                   [0.000, 0.850, 0.015],
-                   [0.000, 0.050, 0.950]])
+    Prob=np.array([[0.990, 0.005, 0.005], 
+                   [0.001, 0.997, 0.002],
+                   [0.001, 0.002, 0.997]])
     
-    N = np.diag([1, 1, 1e4, 1, 1])
-    V = np.eye(2)
+    N = np.eye(5)
+    V = np.eye(5)
 
     dynReg = DynamicRegulator(A, B, W, Lambda, Gamma, Prob, Q=np.eye(5), R=np.eye(3), V=V, N=N)
     dynReg.solve()

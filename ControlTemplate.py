@@ -168,7 +168,7 @@ if __name__ == "__main__":
                     [0.05, 0.95]])
     
     
-    dynReg = DynamicRegulator(A, B, W, Lambda, Gamma, Prob1, Q=np.eye(5), R=np.eye(3), V=np.eye(2), N=np.eye(5))
+    dynReg = DynamicRegulator(A, B, W, Lambda, Gamma, Prob1, Q=np.eye(5), R=np.eye(3), V=np.eye(5), N=np.eye(5))
     dynReg.solve()
 
     system = BuildingSystems(A, B, W, Lambda, Gamma, Prob1)
